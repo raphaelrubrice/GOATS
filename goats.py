@@ -49,16 +49,29 @@ def get_infos(geneset):
         info_dico[geneset[i]].update(gene_dico)
     return info_dico
 
+# def common_ids(infos):
+#     dico = {'MF':[], 'BP':[], 'CC':[]}
+#     for section in ['MF', 'BP', 'CC']:
+#         infos[gene]['ids'][section]
 
-def show_relations(infos, gene):
-    out = {}
+def show_relations(infos, gene, show=True):
+    out = {gene:[]}
+    if show:
+        print(f'\n{gene} :')
     for section in ['MF', 'BP', 'CC']:
         N = len(infos[gene]['ids'][section])
         for i in range(N):
-            print(f'GO:{infos[gene]['ids'][section][i]} : {infos[gene]['predicate'][section][i]}')
-            out.update({gene:{go_term:}})
+            go_term = infos[gene]['ids'][section][i]
+            pad = ''
+            for z in range(7-len(str(go_term))):
+                pad += '0'
+            go_relation = infos[gene]['predicate'][section][i]
+            out[gene].append({f"GO:{pad+str(go_term)}":go_relation})
+            if show:
+                print(f'\n{f"'GO:{pad+str(go_term)}'"} : {go_relation}')
+    return out
 
 infos = get_infos(geneset)
-show_relations(infos, 'FOXA1')
-
+out = show_relations(infos, 'FOXA1', show=False)
+# print(out)
 
