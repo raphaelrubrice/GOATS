@@ -12,10 +12,12 @@ This require 3 files :
 - `-g`, `--geneset` Path to geneset file. ONE GENE SYMBOL PER LINE.
 - `-obo`, `--obo`   Path to the .obo ontology file
 - `-gaf`, `--gaf`   Path to the .gaf annotation file   
+
 **Optional arguments**:  
 - `-threshold`, `--threshold`   Threshold value for filtering -> [0,1] (default: 0.5)
 - `-sd`, `--show_descriptions`  To show description object in terminal -> 0 or 1 (default: 0)
 - `-save`, `--save`             Save the outputs -> 0 or 1 (default: 1)  
+
 **Example**:  
 ```bash
 . run.sh -g geneset.txt -obo go-basic.obo -gaf goa_human.gaf -threshold 0.7
