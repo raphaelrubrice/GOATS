@@ -1,6 +1,11 @@
 # **GOATS**
 Gene Ontology Associated Term Similarities.
 
+**Requirements**:
+- numpy (2.1.3 tested)
+- pronto (2.5.8 tested)  
+- python (3.12.7 tested)
+
 ## Usage:  
 To find gene terms shared by genes in a geneset.  
 This require 3 files :
@@ -16,7 +21,9 @@ This require 3 files :
 **Optional arguments**:  
 - `-threshold`, `--threshold`   Threshold value for filtering -> [0,1] (default: 0.5)
 - `-sd`, `--show_descriptions`  To show description object in terminal -> 0 or 1 (default: 0)
-- `-save`, `--save`             Save the outputs -> 0 or 1 (default: 1)  
+- `-save`, `--save`             Save the outputs -> 0 or 1 (default: 1)
+- `-name`,`--name`              Name of the folder created if save equals 1
+- `-h`, `--help`                Show this help message and exit  
 
 **Example**:  
 ```bash

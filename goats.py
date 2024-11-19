@@ -1,6 +1,6 @@
-import mygene as mg
 import numpy as np
 import gzip
+import os
 from copy import deepcopy
 from pronto import Ontology
 
@@ -10,11 +10,11 @@ def add_item(liste, item):
         return True
     return False
 
-def parse_gaf(file_path, geneset, ontology):
-    gene_dico = {'ids':{'MF':[], 'BP':[], 'CC':[]},
-                    'str_ids':{'MF':[], 'BP':[], 'CC':[]},
-                    'terms':{'MF':[], 'BP':[], 'CC':[]},
-                    'predicate':{'MF':[], 'BP':[], 'CC':[]},
+def parse_gaf(file_path, geneset, ontology, collections):
+    gene_dico = {'ids':{coll:[] for coll in collections},
+                    'str_ids':{coll:[] for coll in collections},
+                    'terms':{coll:[] for coll in collections},
+                    'predicate':{coll:[] for coll in collections},
                     'all_ids':[],
                     'all_collections':[]}
     info_dico = {gene: deepcopy(gene_dico) for gene in geneset}
@@ -39,7 +39,7 @@ def parse_gaf(file_path, geneset, ontology):
                     description_memory[go_term] = go_description
                 else:
                     go_description = description_memory[go_term]
-                collection = translate_collection[cols[8]] # MF, BP or CC
+                collection = translate_collection[cols[8]]
                 for gene in geneset:
                     gene_dico = info_dico[gene]
                     if gene in all_names:
@@ -55,8 +55,9 @@ def parse_gaf(file_path, geneset, ontology):
             print(f'\nGene {gene} not found. Removing {gene}..')
             del info_dico[gene]
         else:
-            info_dico[gene]['all_ids'] = info_dico[gene]['ids']['MF'] + info_dico[gene]['ids']['BP'] + info_dico[gene]['ids']['CC']
-            info_dico[gene]['all_collections'] = ['MF']*len(info_dico[gene]['ids']['MF']) + ['BP']*len(info_dico[gene]['ids']['BP']) + ["CC"]*len(info_dico[gene]['ids']['CC'])
+            for coll in collections:
+                info_dico[gene]['all_ids'] = info_dico[gene]['all_ids'] + info_dico[gene]['ids'][coll]
+                info_dico[gene]['all_collections'] = info_dico[gene]['all_collections'] + [coll]*len(info_dico[gene]['ids'][coll])
     return info_dico, list(info_dico.keys()), description_memory
 
 def show_relations(infos, gene, format='str', query='predicate', show=True):
@@ -64,24 +65,25 @@ def show_relations(infos, gene, format='str', query='predicate', show=True):
     if show:
         print(f'\n{gene} :')
     for section in ['MF', 'BP', 'CC']:
-        N = len(infos[gene]['ids'][section])
-        for i in range(N):
-            go_term = infos[gene]['ids'][section][i]
-            pad = ''
-            for z in range(7-len(str(go_term))):
-                pad += '0'
-            go_relation = infos[gene][query][section][i]
-        
-            if format=='str':
-                added = {f"GO:{pad+str(go_term)}":go_relation}
-                out[gene].append(added)
-            else:
-                out[go_term] = go_relation
-            if show:
+        if section in infos[gene]['ids'].keys():
+            N = len(infos[gene]['ids'][section])
+            for i in range(N):
+                go_term = infos[gene]['ids'][section][i]
+                pad = ''
+                for z in range(7-len(str(go_term))):
+                    pad += '0'
+                go_relation = infos[gene][query][section][i]
+            
                 if format=='str':
-                    print(f'\n{f"'GO:{pad+str(go_term)}'"} : {go_relation}')
+                    added = {f"GO:{pad+str(go_term)}":go_relation}
+                    out[gene].append(added)
                 else:
-                    print(f'\n{go_term} : {go_relation}')
+                    out[go_term] = go_relation
+                if show:
+                    if format=='str':
+                        print(f'\n{f"'GO:{pad+str(go_term)}'"} : {go_relation}')
+                    else:
+                        print(f'\n{go_term} : {go_relation}')
     return out
 
 def find_top_terms(infos, geneset, threshold):
@@ -100,7 +102,6 @@ def find_top_terms(infos, geneset, threshold):
                 count += 1
         if count >= min_hit:
             kept[GO] = count / N_geneset
-    print(len(kept.keys()))
     return kept
 
 def show_description(infos, go_id_list, show=True):
@@ -158,7 +159,7 @@ def load_config(config_file):
     
     return config
 
-def create_info_dico_string(info_dico, genes):
+def create_info_dico_string(info_dico, genes, collection):
     """
     Create a string representation of the `info_dico` dictionary for saving to a text file.
 
@@ -169,27 +170,16 @@ def create_info_dico_string(info_dico, genes):
         str: A formatted string representation of `info_dico`.
     """
     output_lines = []
+    translate = {'MF':"  Molecular Function (MF):\n", "BP":"  Biological Process (BP):\n", "CC":"  Cellular Component (CC):\n"}
     for gene, data in info_dico.items():
         if gene in genes:
-            print(gene)
-            output_lines.append(f"Gene: {gene}\n")
-            output_lines.append("  Molecular Function (MF):\n")
-            for idx, go_id in enumerate(data['ids']['MF']):
-                term = data['terms']['MF'][idx]
-                predicate = data['predicate']['MF'][idx]
-                output_lines.append(f"    GO ID: {go_id} | Term: {term} | Predicate: {predicate}\n")
-
-            output_lines.append("  Biological Process (BP):\n")
-            for idx, go_id in enumerate(data['ids']['BP']):
-                term = data['terms']['BP'][idx]
-                predicate = data['predicate']['BP'][idx]
-                output_lines.append(f"    GO ID: {go_id} | Term: {term} | Predicate: {predicate}\n")
-
-            output_lines.append("  Cellular Component (CC):\n")
-            for idx, go_id in enumerate(data['ids']['CC']):
-                term = data['terms']['CC'][idx]
-                predicate = data['predicate']['CC'][idx]
-                output_lines.append(f"    GO ID: {go_id} | Term: {term} | Predicate: {predicate}\n")
+            for coll in collection:
+                output_lines.append(f"Gene: {gene}\n")
+                output_lines.append(translate[coll])
+                for idx, go_id in enumerate(data['ids'][coll]):
+                    term = data['terms'][coll][idx]
+                    predicate = data['predicate'][coll][idx]
+                    output_lines.append(f"    GO ID: {go_id} | Term: {term} | Predicate: {predicate}\n")
 
             # Add summary information
             output_lines.append("  All GO IDs:\n")
@@ -260,33 +250,51 @@ def run_goats(config):
 
     obo_file = config["OBO_FILE"]
     gaf_file = config["GAF_FILE"]
+    collections = config["COLLECTIONS"].split(',')
+    collections = [coll.replace("'", '') for coll in collections]
     threshold = float(config["THRESHOLD"])
-    print(threshold)
     show_desc = True if int(config["SHOW_DESC"]) == 1 else False
     save = True if int(config["SAVE"]) == 1 else False
-    timestamp = config["TIMESTAMP"]
-
-    ontology = Ontology(obo_file)
-    infos, genes_in_info, all_descriptions = parse_gaf(gaf_file, geneset, ontology)
+    folder = config["FOLDERNAME"]
+    if folder == "None":
+        folder = f"{timestamp}_outputs"
+    timestamp = config["TIMESTAMP"].replace("\"", "")
+    
     if save:
-        filename = f"infos_goats_query_{timestamp}.txt"
-        txt = create_info_dico_string(infos, genes_in_info)
+        try:
+            os.mkdir(folder)
+        except:
+            folder = folder + "_" + timestamp
+            os.mkdir(folder)
+    os.rename(f"log_{timestamp}.txt", f"log_{folder}.txt")
+    
+    print("\nLoading Ontology..")
+    ontology = Ontology(obo_file)
+
+    print("\nRetrieving informations..")
+    infos, genes_in_info, all_descriptions = parse_gaf(gaf_file, geneset, ontology, collections)
+    if save:
+        filename = folder + "/" + f"infos_goats_query_{timestamp}.txt"
+        txt = create_info_dico_string(infos, genes_in_info, collections)
         with open(filename, 'w') as f:
             f.write(txt)
-
+    print("\nFinding frequent GO terms..")
     hits = find_top_terms(infos, genes_in_info, threshold)
     if save:
-        filename = f"hits_goats_query_{timestamp}.txt"
+        filename = folder + "/" + f"hits_goats_query_{timestamp}.txt"
         txt = create_top_terms_string(hits)
         with open(filename, 'w') as f:
             f.write(txt)
-
+    print("\nMaking description object..")
     out = show_description(infos, hits.keys(), show=show_desc)
     if save:
-        filename = f"desc_goats_query_{timestamp}.txt"
+        filename = folder + "/" + f"desc_goats_query_{timestamp}.txt"
         txt = create_description_string(out)
         with open(filename, 'w') as f:
             f.write(txt)
+    print("\nQuery Completed.")
+    if save:
+        print(f"You can find outputs in ./{folder} folder")
     return infos, hits, out
 
 if __name__ == "__main__":
