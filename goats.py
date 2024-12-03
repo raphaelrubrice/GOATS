@@ -256,9 +256,9 @@ def run_goats(config):
     show_desc = True if int(config["SHOW_DESC"]) == 1 else False
     save = True if int(config["SAVE"]) == 1 else False
     folder = config["FOLDERNAME"]
+    timestamp = config["TIMESTAMP"].replace("\"", "")
     if folder == "None":
         folder = f"{timestamp}_outputs"
-    timestamp = config["TIMESTAMP"].replace("\"", "")
     
     if save:
         try:
