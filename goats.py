@@ -81,7 +81,8 @@ def show_relations(infos, gene, format='str', query='predicate', show=True):
                     out[go_term] = go_relation
                 if show:
                     if format=='str':
-                        print(f'\n{f"'GO:{pad+str(go_term)}'"} : {go_relation}')
+                        mem = f"'GO:{pad+str(go_term)}'"
+                        print(f'\n{mem} : {go_relation}')
                     else:
                         print(f'\n{go_term} : {go_relation}')
     return out
@@ -307,3 +308,4 @@ if __name__ == "__main__":
     config_file = sys.argv[1]
     config = load_config(config_file)
     infos, hits, out = run_goats(config)
+
