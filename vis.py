@@ -86,41 +86,6 @@ def plot_go_lineage_parent(go_terms):
     os.system(f"dot -Tpng {dot_filename} -o go_lineage_parent.png")
     print(f"GO lineage plot saved as 'go_lineage_parent.png'")
 
-def plot_go_lineage_child(go_terms):
-    
-    go_dag = GODag("go-basic.obo")  
-
-    go_subdag = GoSubDag(go_terms, go_dag, prt=None)
-
-    # Write the GO subdag to a DOT file for visualization
-    dot_filename = "go_lineage_child.dot"
-    with open(dot_filename, 'w') as dot_file:
-        
-        
-        dot_file.write("digraph GO {\n")
-        
-        
-        for goid in go_subdag.go2obj:
-            go_term_obj = go_subdag.go2obj[goid]
-            dot_file.write(f'    "{goid}" [label="{goid}"];\n')
-            for child in go_term_obj.children:
-                dot_file.write(f'    "{goid}" -> "{child}";\n')
-        
-        dot_file.write("}\n")
-    
-    # Convert the DOT file to a PNG image using graphviz (requires graphviz installed)
-    os.system(f"dot -Tpng {dot_filename} -o go_lineage_child.png")
-    print(f"GO lineage plot saved as 'go_lineage_child.png'")
-
-    try:
-            result = subprocess.run(['dot', '-Tpng', dot_filename, '-o', 'go_lineage_child.png'],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    check=True)
-            print(f"GO lineage plot saved as 'go_lineage_child.png'")
-    except subprocess.CalledProcessError as e:
-        print(f"Error creating PNG file: {e.stderr.decode('utf-8')}")
-
 
 def main():
     try:
@@ -133,7 +98,6 @@ def main():
 
         
         plot_go_lineage_parent(go_terms)
-        plot_go_lineage_child(go_terms)
 
 
     except (FileNotFoundError, ValueError) as e:
