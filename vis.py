@@ -6,6 +6,11 @@ from goatools.obo_parser import GODag
 from goatools.gosubdag.gosubdag import GoSubDag  
 import goatools.base
 import subprocess
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+from PIL import Image
+
+
 base_dir = Path(__file__).parent
 
 def get_most_recent_hits_file():
@@ -33,74 +38,131 @@ def get_most_recent_hits_file():
 
     return most_recent_hits_file
 
-def main():
-    try:
-        most_recent_hits_file = get_most_recent_hits_file()
-        print(f"Reading file: {most_recent_hits_file}")
+def get_color_gradient(counts, min_count=None, max_count=None):
+    """
+    Generate a gradient color map based on counts.
+    :param counts: A list of count values.
+    :param min_count: Minimum value for the gradient (auto-calculated if None).
+    :param max_count: Maximum value for the gradient (auto-calculated if None).
+    :return: A tuple containing:
+        - A dictionary of GO terms mapped to gradient colors.
+        - The colormap used for the gradient.
+        - The normalization object for the color scale.
+    """
+    min_count = min_count if min_count is not None else 0
+    max_count = max_count if max_count is not None else max(counts.values())
 
-        with most_recent_hits_file.open('r', encoding='utf-8') as file:
-            content = file.read()
-            print(content)
+    cmap = plt.get_cmap("Reds")  # Use a red gradient colormap
+    norm = mcolors.Normalize(vmin=min_count, vmax=max_count)
 
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
+    # Map counts to colors
+    color_map = {}
+    for go_term, count in counts.items():
+        color = mcolors.to_hex(cmap(norm(count)))
+        color_map[go_term] = color
+    return color_map, cmap, norm
 
 
 
-def extract_go_terms(filepath):
-    go_terms = []
-    pattern = r'GO:\d+'
+
+
+def extract_go_terms_with_counts(filepath):
+    """
+    Extract GO terms and their counts from the input file.
+    Example file content: 'GO:0005515 | Frequency: 0.8889'
+    :param filepath: Path to the input file.
+    :return: A dictionary with GO terms as keys and counts as values.
+    """
+    go_counts = {}
+    pattern = r'(GO:\d+)\s*\|\s*Frequency:\s*(\d*\.\d+)'
 
     with filepath.open('r', encoding='utf-8') as file:
-        content = file.read()
-        go_terms = re.findall(pattern, content)
+        for line in file:
+            match = re.search(pattern, line)
+            if match:
+                go_term = match.group(1)
+                count = float(match.group(2))
+                go_counts[go_term] = count
 
-    if not go_terms:
-        raise ValueError("No GO terms found in the provided file.")
+    if not go_counts:
+        raise ValueError("No GO terms with counts found in the file.")
+    return go_counts
 
-    return set(go_terms)  
 
-def plot_go_lineage_parent(go_terms):
+
+
+
+def plot_go_lineage_with_colors(go_terms, go_counts):
+    """
+    Generate a GO lineage plot with parent relationships and gradient colors based on counts.
+    GO terms not in the list are displayed in grey.
+    :param go_terms: Set of GO terms to visualize.
+    :param go_counts: Dictionary with GO terms as keys and count values.
+    """
     
     go_dag = GODag("go-basic.obo")  
-
+    color_map, cmap, norm = get_color_gradient(go_counts)
     go_subdag = GoSubDag(go_terms, go_dag, prt=None)
 
-    # Write the GO subdag to a DOT file for visualization
-    dot_filename = "go_lineage_parent.dot"
+    dot_filename = "go_lineage_colored.dot"
+    image_filename = "go_lineage_colored.png"
     with open(dot_filename, 'w') as dot_file:
-        
-        
         dot_file.write("digraph GO {\n")
-        
-        
+        for goid in go_subdag.go2obj:
+            if goid in go_counts:
+                color = color_map[goid]  # Color based on counts
+                label = f"{goid}\n{go_counts[goid]:.2f}"
+            else:
+                color = "#D3D3D3"  # Grey for GO terms not in the list
+                label = goid
+            dot_file.write(f'    "{goid}" [label="{label}", style=filled, fillcolor="{color}"];')
         for goid in go_subdag.rcntobj.go2parents:
-            dot_file.write(f'    "{goid}" [label="{goid}"];\n')
             for parent in go_subdag.rcntobj.go2parents[goid]:
                 dot_file.write(f'    "{parent}" -> "{goid}";\n')
-        
-        
         dot_file.write("}\n")
+
     
-    # Convert the DOT file to a PNG image using graphviz (requires graphviz installed)
-    os.system(f"dot -Tpng {dot_filename} -o go_lineage_parent.png")
-    print(f"GO lineage plot saved as 'go_lineage_parent.png'")
+    try:
+        subprocess.run(['dot', '-Tpng', dot_filename, '-o', image_filename], check=True)
+        print(f"GO lineage plot with colors saved as '{image_filename}'")
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating GO lineage plot: {e}")
+
+    # Combine the lineage plot and legend
+    combined_filename = "go_lineage_with_legend.png"
+    fig, ax = plt.subplots(figsize=(6, 1))
+    fig.subplots_adjust(bottom=0.5)
+    cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=ax, orientation='horizontal')
+    cbar.set_label("GO Term Frequency")
+
+    # Save the legend as a temporary image
+    legend_filename = "legend_temp.png"
+    plt.savefig(legend_filename)
+    plt.close()
+
+    # Combine the lineage image and legend
+    lineage_img = Image.open(image_filename)
+    legend_img = Image.open(legend_filename)
+    total_height = lineage_img.height + legend_img.height
+    combined_img = Image.new("RGBA", (lineage_img.width, total_height), (255, 255, 255, 255))
+    combined_img.paste(lineage_img, (0, 0))
+    combined_img.paste(legend_img, (0, lineage_img.height))
+    combined_img.save(combined_filename)
+
+    print(f"Combined lineage plot with legend saved as '{combined_filename}'")
+
 
 
 def main():
     try:
-        most_recent_hits_file = get_most_recent_hits_file()
-        print(f"Reading file: {most_recent_hits_file}")
-
         
-        go_terms = extract_go_terms(most_recent_hits_file)
+        most_recent_hits_file = get_most_recent_hits_file()  
+        go_counts = extract_go_terms_with_counts(most_recent_hits_file)
+        go_terms = set(go_counts.keys())
         print(f"Extracted GO Terms: {go_terms}")
+        plot_go_lineage_with_colors(go_terms, go_counts)
 
-        
-        plot_go_lineage_parent(go_terms)
-
-
-    except (FileNotFoundError, ValueError) as e:
+    except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
