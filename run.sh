@@ -83,3 +83,4 @@ EOL
 
 python=$(command -v python)
 $python "$script_dir/goats.py" "$config_file"
+$python "$script_dir/vis.py"
